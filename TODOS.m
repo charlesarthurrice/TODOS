@@ -29,6 +29,8 @@ function TODOS(tag, name, option)
 %
 %
 %Author: Marc Jakobi, 14.10.2016
+%Updated: Marc Jakobi, 15.10.2022
+
 
 %% Check inputs
 if nargin < 1 || isempty(tag)
@@ -43,28 +45,31 @@ end
 if ~iscell(tag) % cast to cell array to avoid indexing problems
     tag = {tag};
 end
+
+
+
 % check for correct option input
 validatestring(option, {'dir', 'file', 'subdirs', 'all'});
 if strcmpi(option,'dir')
-    if isdir(name)
-        dir = name;
-        fileList = mfiles(dir);
+    if isfolder(name)
+        folder = name;
+        fileList = mfiles(folder);
     else
         error([name, ' is not a directory.']);
     end
 elseif strcmpi(option,'file')
-    [dir,fname] = fileparts(name);
-    if isempty(dir)
-        dir = cd;
+    [folder,fname] = fileparts(name);
+    if isempty(folder)
+        folder = cd;
     end %in case the file is in the current folder
-    name = fullfile(dir,[fname '.m']);
+    name = fullfile(folder,[fname '.m']);
     if exist(name,'file') %make sure the file is valid
         fileList = {[fname '.m']};
     else
         error('File not found.')
     end
 elseif strcmpi(option,'all') %search entire matlab search path
-    dir = '';
+    folder = '';
     p = path;
     ind = [0, strfind(p,';')];
     P = cell(length(ind),1);
@@ -80,7 +85,7 @@ elseif strcmpi(option,'all') %search entire matlab search path
         end
     end
 elseif strcmpi(option,'subdirs') %include all files in subdirectories
-    dir = '';
+    folder = '';
     fileList = subdirfiles(name, '.m');
 end
 
@@ -93,34 +98,38 @@ end
 try % some files in search path can't be opened
     for n = 1:length(fileList)
         filename = fileList{n};
-        file = strsplit(matlab.internal.getCode(fullfile(dir,filename)), {'\r\n','\n', '\r'}, 'CollapseDelimiters', false)';
-        tagData(n).filename = filename; %#ok<*AGROW>
-        tagData(n).linenumber = [];
-        tagData(n).linecode = {};
-        tagData(n).tag = {};
-        for i = 1:length(tag)
-            for m = 1:length(file)
-                if ~isempty(file{m}) && ~isempty(regexpi(file{m},['%.*',tag{i}]))
-                    ln = file{m};
-                    ln = regexprep(ln,'^\s*%\s*','');
-                    tagData(n).linenumber(end+1) = m;
-                    tagData(n).linecode{end+1} = ln;
-                    tagData(n).tag{end+1} = tag{i};
+        if ~contains(filename, 'TODOS')
+            file = strsplit(matlab.internal.getCode(fullfile(folder,filename)), {'\r\n','\n', '\r'}, 'CollapseDelimiters', false)';
+            tagData(n).filename = filename; %#ok<*AGROW>
+            tagData(n).linenumber = [];
+            tagData(n).linecode = {};
+            tagData(n).tag = {};
+            for i = 1:length(tag)
+                for m = 1:length(file)
+                    if ~isempty(file{m}) && ~isempty(regexpi(file{m},['%.*',tag{i}])) %#ok<RGXPI>
+                        ln = file{m};
+                        ln = regexprep(ln,'^\s*%\s*','');
+                        tagData(n).linenumber(end+1) = m;
+                        tagData(n).linecode{end+1} = ln;
+                        tagData(n).tag{end+1} = tag{i};
+                    end
                 end
             end
         end
     end
 catch
 end
+
+
 %% Display tags in workspace
 if ~isempty(tagData)
     % Loop over all the files in the structure
     for n = 1:length(tagData)
         reportComponent = sprintf('%s', tagData(n).filename);
         if ~isempty(tagData(n).linenumber)
-            name = fullfile(dir, tagData(n).filename);
+            name = fullfile(folder, tagData(n).filename);
             openInEditor = sprintf('edit(''%s'')',name);
-            disp(' ')
+            disp(' ');
             [~, fname, ~] = fileparts(reportComponent);
             disp(['<a href="matlab:' openInEditor '">',fname,'</a>']);
             for m = 1:length(tagData(n).linenumber)
@@ -128,7 +137,7 @@ if ~isempty(tagData)
                 lineNumber = sprintf('Line %d', tagData(n).linenumber(m));
                 tagIdx = strfind(tagData(n).linecode{m}, tagData(n).tag{m});
                 lineTODO = tagData(n).linecode{m}(tagIdx:end);
-                disp(['<a href="matlab:' openToLine '">',lineNumber,'</a> ', lineTODO])
+                disp(['<a href="matlab:' openToLine '">',lineNumber,'</a> ', lineTODO]);
             end
         end
     end
@@ -156,10 +165,10 @@ for i = 1:length(dirList)
 end
 end %subdirfiles
 
-function fileList = mfiles(dir)
+function fileList = mfiles(folder_in)
 fileList = [];
-if isdir(dir)
-    dirFileList = what(dir);
+if isfolder(folder_in)
+    dirFileList = what(folder_in);
     fileList = [dirFileList.m];
     if (isfield(dirFileList, 'mlx'))
         fileList = [fileList; dirFileList.mlx];
