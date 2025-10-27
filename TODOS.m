@@ -30,7 +30,6 @@ function TODOS(tag, name, option)
 %
 %Author: Marc Jakobi, 14.10.2016
 %Updated: Marc Jakobi, 15.10.2022
-%Updated: Charles Rice, 27.10.2025
 
 
 %% Check inputs
